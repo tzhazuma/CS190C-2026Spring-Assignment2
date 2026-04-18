@@ -1,5 +1,5 @@
 seed: 42
-output_dir: outputs/pilot_s
+output_dir: outputs/pilot_xs
 dataset_name: roneneldan/TinyStories
 dataset_config_name: null
 tokenizer_name_or_path: roneneldan/TinyStories-33M

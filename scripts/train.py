@@ -4,10 +4,12 @@ import argparse
 import math
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+from accelerate import Accelerator
 from transformers import (
     AutoTokenizer,
     LlamaConfig,
@@ -34,51 +36,77 @@ def parse_args() -> argparse.Namespace:
 
 def create_accelerator(exp_config: dict) -> "Accelerator":
     """
-    TODO(student):
-    1. Import `Accelerator` from `accelerate`.
-    2. Initialize it with the correct gradient accumulation steps.
-    3. Enable TensorBoard logging with `log_with="tensorboard"`.
-    4. Use `project_dir=exp_config["output_dir"]` so logs and checkpoints are grouped
-       under the experiment output directory.
-    5. Return the accelerator object.
+    Create the training accelerator with gradient accumulation and TensorBoard logging.
     """
-    raise NotImplementedError("TODO(student): initialize and return Accelerator.")
+    return Accelerator(
+        gradient_accumulation_steps=exp_config["gradient_accumulation_steps"],
+        log_with="tensorboard",
+        project_dir=exp_config["output_dir"],
+    )
 
 
 def build_dataloaders(exp_config: dict, tokenizer) -> tuple[DataLoader, DataLoader]:
     """
-    TODO(student):
-    1. Call `build_language_modeling_splits(...)` to get train/validation datasets.
-    2. Wrap each split in a PyTorch `DataLoader`.
-    3. Use `default_data_collator` as the collate function.
-    4. Shuffle the training loader, but do not shuffle validation.
-    5. Return `(train_dataloader, val_dataloader)`.
+    Build shuffled training and deterministic validation dataloaders.
     """
-    raise NotImplementedError("TODO(student): create train/validation dataloaders.")
+    datasets = build_language_modeling_splits(
+        dataset_name=exp_config["dataset_name"],
+        dataset_config_name=exp_config["dataset_config_name"],
+        tokenizer=tokenizer,
+        block_size=exp_config["block_size"],
+        num_preprocessing_workers=exp_config["num_preprocessing_workers"],
+        cache_dir=exp_config.get("hf_cache_dir"),
+    )
+    train_dataset = cast(Any, datasets["train"])
+    val_dataset = cast(Any, datasets["validation"])
+
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=exp_config["per_device_train_batch_size"],
+        shuffle=True,
+        collate_fn=default_data_collator,
+    )
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=exp_config["per_device_eval_batch_size"],
+        shuffle=False,
+        collate_fn=default_data_collator,
+    )
+    return train_dataloader, val_dataloader
 
 
 def prepare_training_components(accelerator, model, optimizer, train_dataloader, val_dataloader, lr_scheduler):
     """
-    TODO(student):
-    Use `accelerator.prepare(...)` to wrap the model, optimizer, dataloaders, and scheduler
-    before training starts. Return the prepared objects in the same order.
+    Wrap the model, optimizer, dataloaders, and scheduler for distributed training.
     """
-    raise NotImplementedError("TODO(student): call accelerator.prepare(...).")
+    return accelerator.prepare(
+        model,
+        optimizer,
+        train_dataloader,
+        val_dataloader,
+        lr_scheduler,
+    )
 
 
 @torch.no_grad()
 def run_validation(accelerator, model, dataloader) -> dict[str, float]:
     """
-    TODO(student):
-    1. Put the model in eval mode.
-    2. Iterate over the validation dataloader.
-    3. Run a forward pass with `labels=batch["labels"]` so the model returns the LM loss.
-    4. Gather losses across processes if needed.
-    5. Return at least:
-       - `val_loss`
-       - `val_perplexity`
+    Evaluate the model on the validation set and return loss and perplexity.
     """
-    raise NotImplementedError("TODO(student): implement the validation loop.")
+    model.eval()
+    losses = []
+
+    for batch in dataloader:
+        outputs = model(**batch)
+        gathered_loss = accelerator.gather_for_metrics(outputs.loss.detach().repeat(batch["input_ids"].size(0)))
+        losses.append(gathered_loss)
+
+    loss_tensor = torch.cat(losses)
+    val_loss = loss_tensor.mean().item()
+    return {
+        "val_loss": val_loss,
+        "val_perplexity": math.exp(val_loss),
+    }
 
 
 def main() -> None:
@@ -91,7 +119,10 @@ def main() -> None:
 
     accelerator = create_accelerator(exp_config)
 
-    tokenizer = AutoTokenizer.from_pretrained(exp_config["tokenizer_name_or_path"])
+    tokenizer = AutoTokenizer.from_pretrained(
+        exp_config["tokenizer_name_or_path"],
+        cache_dir=exp_config.get("hf_cache_dir"),
+    )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -146,30 +177,34 @@ def main() -> None:
     )
 
     completed_steps = 0
+    optimizer.zero_grad()
     model.train()
 
     while completed_steps < exp_config["max_train_steps"]:
         for batch in train_dataloader:
             with accelerator.accumulate(model):
-                """
-                TODO(student):
-                1. Run the forward pass: `outputs = model(**batch)`.
-                2. Read `loss = outputs.loss`.
-                3. Call `accelerator.backward(loss)`.
-                4. Clip gradients with `accelerator.clip_grad_norm_` when gradients are synchronized.
-                5. Step the optimizer and scheduler.
-                6. Zero gradients.
-                """
-                raise NotImplementedError("TODO(student): implement the training step.")
+                outputs = model(**batch)
+                loss = outputs.loss
+                accelerator.backward(loss)
+                if accelerator.sync_gradients:
+                    accelerator.clip_grad_norm_(model.parameters(), exp_config["max_grad_norm"])
+                optimizer.step()
+                lr_scheduler.step()
+                optimizer.zero_grad()
+
+            if not accelerator.sync_gradients:
+                continue
 
             completed_steps += 1
             progress_bar.update(1)
+            gathered_train_loss = cast(torch.Tensor, accelerator.reduce(loss.detach(), reduction="mean"))
+            train_loss = gathered_train_loss.item()
 
             if completed_steps % exp_config["logging_every_steps"] == 0:
                 current_lr = lr_scheduler.get_last_lr()[0]
                 accelerator.log(
                     {
-                        "train_loss": loss.item(),
+                        "train_loss": train_loss,
                         "learning_rate": current_lr,
                     },
                     step=completed_steps,
@@ -185,6 +220,10 @@ def main() -> None:
             if completed_steps % exp_config["save_every_steps"] == 0:
                 save_dir = Path(exp_config["output_dir"]) / f"checkpoint-{completed_steps}"
                 accelerator.save_state(str(save_dir))
+                accelerator.save(
+                    accelerator.get_state_dict(model),
+                    save_dir / "model_state.pt",
+                )
 
             if completed_steps >= exp_config["max_train_steps"]:
                 break
@@ -193,6 +232,13 @@ def main() -> None:
     accelerator.log(final_metrics, step=completed_steps)
     if accelerator.is_main_process:
         print(f"[final] {format_metrics(final_metrics)}")
+
+    final_save_dir = Path(exp_config["output_dir"]) / "checkpoint-final"
+    accelerator.save_state(str(final_save_dir))
+    accelerator.save(
+        accelerator.get_state_dict(model),
+        final_save_dir / "model_state.pt",
+    )
 
     accelerator.wait_for_everyone()
     accelerator.end_training()

@@ -4,9 +4,11 @@ import argparse
 import math
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import torch
 from torch.utils.data import DataLoader
+from accelerate import Accelerator
 from transformers import AutoTokenizer, LlamaConfig, LlamaForCausalLM, default_data_collator
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,38 +30,51 @@ def parse_args() -> argparse.Namespace:
 
 def create_accelerator() -> "Accelerator":
     """
-    TODO(student):
-    1. Import `Accelerator` from `accelerate`.
-    2. Initialize a basic accelerator for evaluation.
-    3. Return the accelerator object.
+    Create the evaluation accelerator.
     """
-    raise NotImplementedError("TODO(student): initialize Accelerator for evaluation.")
+    return Accelerator()
 
 
 def build_eval_dataloader(exp_config: dict, tokenizer) -> DataLoader:
     """
-    TODO(student):
-    1. Reuse `build_language_modeling_splits(...)`.
-    2. Select the validation split.
-    3. Create a DataLoader with `default_data_collator`.
-    4. Do not shuffle the evaluation dataloader.
+    Build the validation dataloader used for offline evaluation.
     """
-    raise NotImplementedError("TODO(student): create the evaluation dataloader.")
+    datasets = build_language_modeling_splits(
+        dataset_name=exp_config["dataset_name"],
+        dataset_config_name=exp_config["dataset_config_name"],
+        tokenizer=tokenizer,
+        block_size=exp_config["block_size"],
+        num_preprocessing_workers=exp_config["num_preprocessing_workers"],
+        cache_dir=exp_config.get("hf_cache_dir"),
+    )
+    val_dataset = cast(Any, datasets["validation"])
+    return DataLoader(
+        val_dataset,
+        batch_size=exp_config["per_device_eval_batch_size"],
+        shuffle=False,
+        collate_fn=default_data_collator,
+    )
 
 
 @torch.no_grad()
 def evaluate(accelerator, model, dataloader) -> dict[str, float]:
     """
-    TODO(student):
-    1. Put the model in eval mode.
-    2. Iterate over the validation dataloader.
-    3. Compute the language modeling loss.
-    4. Gather losses across processes when needed.
-    5. Return:
-       - `val_loss`
-       - `val_perplexity`
+    Evaluate the model on the validation split and return loss and perplexity.
     """
-    raise NotImplementedError("TODO(student): implement the evaluation loop.")
+    model.eval()
+    losses = []
+
+    for batch in dataloader:
+        outputs = model(**batch)
+        gathered_loss = accelerator.gather_for_metrics(outputs.loss.detach().repeat(batch["input_ids"].size(0)))
+        losses.append(gathered_loss)
+
+    loss_tensor = torch.cat(losses)
+    val_loss = loss_tensor.mean().item()
+    return {
+        "val_loss": val_loss,
+        "val_perplexity": math.exp(val_loss),
+    }
 
 
 def main() -> None:
@@ -71,7 +86,10 @@ def main() -> None:
 
     accelerator = create_accelerator()
 
-    tokenizer = AutoTokenizer.from_pretrained(exp_config["tokenizer_name_or_path"])
+    tokenizer = AutoTokenizer.from_pretrained(
+        exp_config["tokenizer_name_or_path"],
+        cache_dir=exp_config.get("hf_cache_dir"),
+    )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -86,22 +104,17 @@ def main() -> None:
     model_config = LlamaConfig(**model_config_dict)
     model = LlamaForCausalLM(model_config)
 
-    """
-    TODO(student):
-    Load the checkpoint weights into the model.
-    You may use either:
-    - `accelerator.load_state(...)` if you save full training state, or
-    - `model.load_state_dict(...)` if you save only model weights.
-    """
-    raise NotImplementedError("TODO(student): load checkpoint weights before evaluation.")
-
     eval_dataloader = build_eval_dataloader(exp_config, tokenizer)
 
-    """
-    TODO(student):
-    Prepare the model and dataloader with `accelerator.prepare(...)`.
-    """
-    raise NotImplementedError("TODO(student): prepare the model and dataloader for evaluation.")
+    model, eval_dataloader = accelerator.prepare(model, eval_dataloader)
+
+    checkpoint_path = Path(args.checkpoint_path)
+    state_dict_path = checkpoint_path if checkpoint_path.is_file() else checkpoint_path / "model_state.pt"
+    if not state_dict_path.is_file():
+        raise FileNotFoundError(f"Expected model weights at {state_dict_path}.")
+
+    state_dict = torch.load(state_dict_path, map_location="cpu")
+    accelerator.unwrap_model(model).load_state_dict(state_dict)
 
     metrics = evaluate(accelerator, model, eval_dataloader)
 

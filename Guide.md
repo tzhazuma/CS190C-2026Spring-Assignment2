@@ -84,6 +84,8 @@ CS190C_Assignment2_Starter/
 - `configs/experiments/pilot_s.yaml`
 - `configs/models/s.json`
 
+For a complete runnable experiment matrix, see `RUNNING.md`.
+
 ## TODO guide
 
 The main missing pieces are marked with `TODO(student)` in English.

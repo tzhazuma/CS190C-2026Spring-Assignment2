@@ -1,5 +1,5 @@
 seed: 42
-output_dir: outputs/pilot_s
+output_dir: outputs/pilot_s_lr8e4
 dataset_name: roneneldan/TinyStories
 dataset_config_name: null
 tokenizer_name_or_path: roneneldan/TinyStories-33M
@@ -9,7 +9,7 @@ num_preprocessing_workers: 1
 per_device_train_batch_size: 8
 per_device_eval_batch_size: 8
 gradient_accumulation_steps: 4
-learning_rate: 0.0005
+learning_rate: 0.0008
 weight_decay: 0.1
 warmup_ratio: 0.02
 max_train_steps: 1500

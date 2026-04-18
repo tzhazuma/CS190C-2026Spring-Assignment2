@@ -31,8 +31,9 @@ def build_language_modeling_splits(
     tokenizer: PreTrainedTokenizerBase,
     block_size: int,
     num_preprocessing_workers: int = 1,
+    cache_dir: str | None = None,
 ) -> DatasetDict:
-    raw = load_dataset(dataset_name, dataset_config_name)
+    raw = load_dataset(dataset_name, dataset_config_name, cache_dir=cache_dir)
 
     if "validation" not in raw:
         raise ValueError("Expected the dataset to contain a validation split.")

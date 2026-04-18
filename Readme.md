@@ -132,6 +132,7 @@ You **are** expected to:
 - analyze pilot results and justify your scale-up.
 
 For detailed guidelines, please refer to [Guide](./Guide.md).
+For a ready-to-run experiment matrix and server commands, see [RUNNING](./RUNNING.md).
 
 ### Assignment tasks
 
