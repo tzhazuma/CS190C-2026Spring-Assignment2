@@ -11,8 +11,10 @@ This repository is ready for the assignment workflow:
 
 Useful companion files:
 
+- `SERVER_RUN.md` for background execution on remote servers
 - `REPORT_TEMPLATE.md` for the final report structure
 - `EXPERIMENT_LOG_TEMPLATE.md` for per-run notes and summary tables
+- `RESULTS_SUMMARY_TEMPLATE.csv` for the final run summary sheet
 
 ## 1. Environment setup
 
@@ -231,3 +233,5 @@ For the final 2-GPU run, inspect:
 - optionally try FSDP and compare memory/throughput
 
 You can start from `REPORT_TEMPLATE.md` and `EXPERIMENT_LOG_TEMPLATE.md` when organizing results.
+For remote background execution, see `SERVER_RUN.md`.
+For the final 6 pilots + 1 final-run summary sheet, use `RESULTS_SUMMARY_TEMPLATE.csv`.

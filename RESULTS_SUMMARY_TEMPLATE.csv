@@ -1,0 +1,8 @@
+stage,run_name,accelerate_config,experiment_config,model_config,gpu_count,learning_rate,per_device_batch_size,gradient_accumulation_steps,effective_batch_size,max_train_steps,hidden_size,num_hidden_layers,num_attention_heads,final_train_loss,final_val_loss,final_val_perplexity,best_checkpoint,stability_summary,decision,next_action
+lr_sweep,pilot_s_lr3e4,accelerate_configs/single_gpu.yaml,configs/experiments/pilot_s_lr3e4.yaml,configs/models/s.json,1,0.0003,8,4,32,1500,512,12,8,,,,,TBD,TBD,TBD
+lr_sweep,pilot_s_lr5e4,accelerate_configs/single_gpu.yaml,configs/experiments/pilot_s_lr5e4.yaml,configs/models/s.json,1,0.0005,8,4,32,1500,512,12,8,,,,,TBD,TBD,TBD
+lr_sweep,pilot_s_lr8e4,accelerate_configs/single_gpu.yaml,configs/experiments/pilot_s_lr8e4.yaml,configs/models/s.json,1,0.0008,8,4,32,1500,512,12,8,,,,,TBD,TBD,TBD
+size_sweep,pilot_xs,accelerate_configs/single_gpu.yaml,configs/experiments/pilot_xs.yaml,configs/models/xs.json,1,TBD_BEST_LR,8,4,32,1500,384,8,6,,,,,TBD,TBD,TBD
+size_sweep,pilot_s,accelerate_configs/single_gpu.yaml,configs/experiments/pilot_s.yaml,configs/models/s.json,1,TBD_BEST_LR,8,4,32,1500,512,12,8,,,,,TBD,TBD,TBD
+size_sweep,pilot_m,accelerate_configs/single_gpu.yaml,configs/experiments/pilot_m.yaml,configs/models/m.json,1,TBD_BEST_LR,8,4,32,1500,640,14,10,,,,,TBD,TBD,TBD
+final,scaleup_m,accelerate_configs/two_gpu_ddp.yaml,configs/experiments/scaleup_m.yaml,configs/models/m.json,2,0.0003,8,8,128,10000,640,14,10,,,,,TBD,TBD,TBD

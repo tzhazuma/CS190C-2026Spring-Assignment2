@@ -1,6 +1,7 @@
 # CS190C HW2 Experiment Log Template
 
 Use this file during training so you do not lose details needed later for the report.
+After each completed run, copy the key metrics into `RESULTS_SUMMARY_TEMPLATE.csv`.
 
 ## Global Notes
 

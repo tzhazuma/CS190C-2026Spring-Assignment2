@@ -85,7 +85,9 @@ CS190C_Assignment2_Starter/
 - `configs/models/s.json`
 
 For a complete runnable experiment matrix, see `RUNNING.md`.
+For remote background execution with `nohup`, see `SERVER_RUN.md`.
 For report writing and experiment note-taking, see `REPORT_TEMPLATE.md` and `EXPERIMENT_LOG_TEMPLATE.md`.
+For the final experiment summary sheet, see `RESULTS_SUMMARY_TEMPLATE.csv`.
 
 ## TODO guide
 
