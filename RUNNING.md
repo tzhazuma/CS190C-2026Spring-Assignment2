@@ -9,6 +9,11 @@ This repository is ready for the assignment workflow:
 5. launch the 2-GPU final run,
 6. evaluate the final checkpoint and export TensorBoard logs.
 
+Useful companion files:
+
+- `REPORT_TEMPLATE.md` for the final report structure
+- `EXPERIMENT_LOG_TEMPLATE.md` for per-run notes and summary tables
+
 ## 1. Environment setup
 
 ```bash
@@ -133,6 +138,80 @@ Launch TensorBoard from the repository root:
 tensorboard --logdir outputs
 ```
 
+If you are training on a remote server, start TensorBoard on the server:
+
+```bash
+tensorboard --logdir outputs --host 0.0.0.0 --port 6006
+```
+
+Then create an SSH tunnel from your local machine:
+
+```bash
+ssh -L 6006:localhost:6006 your_username@your_server
+```
+
+Open the browser on your local machine:
+
+```text
+http://localhost:6006
+```
+
+### What to look at in TensorBoard
+
+The training script logs these scalar tags:
+
+- `train_loss`
+- `learning_rate`
+- `val_loss`
+- `val_perplexity`
+
+For the learning-rate sweep, compare the three `pilot_s_lr*` runs and focus on:
+
+- whether `val_loss` drops smoothly
+- whether `val_loss` reaches the lowest value by the end of the pilot
+- whether `train_loss` is noisy or unstable
+- whether `val_perplexity` tracks the same ranking as `val_loss`
+
+Practical decision rule:
+
+- prefer the learning rate with the lowest stable `val_loss`
+- avoid a run whose `train_loss` or `val_loss` oscillates strongly
+- if two runs are very close, prefer the more stable one
+
+For the model-size sweep, compare `pilot_xs`, `pilot_s`, and `pilot_m` and focus on:
+
+- final `val_loss`
+- improvement speed in early and middle training
+- whether the larger model still improves under the same token budget
+
+Practical decision rule:
+
+- if `pilot_m` clearly beats `pilot_s` at the same token budget, it is a good candidate for the final run
+- if `pilot_m` is only marginally better but much slower or less stable, justify staying with `S`
+
+For the final 2-GPU run, inspect:
+
+- whether `val_loss` continues the trend suggested by the pilot run
+- whether the larger effective batch size causes optimization instability
+- whether the final `val_perplexity` is better than the best pilot run
+
+### Recommended TensorBoard workflow
+
+1. Run TensorBoard with `tensorboard --logdir outputs`.
+2. In the Scalars page, enable only `val_loss` first.
+3. Compare all learning-rate pilot runs on the same chart.
+4. Record the best LR in `EXPERIMENT_LOG_TEMPLATE.md`.
+5. Compare the model-size pilot runs on `val_loss` and `val_perplexity`.
+6. Use the best pilot as the reference baseline for the final 2-GPU run.
+7. Export or screenshot the final curves for your report.
+
+### What to include in the report from TensorBoard
+
+- one comparison figure for the 3 learning-rate pilots
+- one comparison figure for the 3 model-size pilots
+- one figure for the final 2-GPU run
+- a short explanation of what each figure changed in your decisions
+
 ## 8. What is already implemented
 
 - `Accelerator` initialization for training and evaluation
@@ -150,3 +229,5 @@ tensorboard --logdir outputs
 - select the best learning rate from the first sweep
 - write the pilot results table and short report
 - optionally try FSDP and compare memory/throughput
+
+You can start from `REPORT_TEMPLATE.md` and `EXPERIMENT_LOG_TEMPLATE.md` when organizing results.

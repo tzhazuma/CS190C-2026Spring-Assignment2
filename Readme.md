@@ -133,6 +133,7 @@ You **are** expected to:
 
 For detailed guidelines, please refer to [Guide](./Guide.md).
 For a ready-to-run experiment matrix and server commands, see [RUNNING](./RUNNING.md).
+For write-up support, see [REPORT_TEMPLATE](./REPORT_TEMPLATE.md) and [EXPERIMENT_LOG_TEMPLATE](./EXPERIMENT_LOG_TEMPLATE.md).
 
 ### Assignment tasks
 

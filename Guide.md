@@ -85,6 +85,7 @@ CS190C_Assignment2_Starter/
 - `configs/models/s.json`
 
 For a complete runnable experiment matrix, see `RUNNING.md`.
+For report writing and experiment note-taking, see `REPORT_TEMPLATE.md` and `EXPERIMENT_LOG_TEMPLATE.md`.
 
 ## TODO guide
 
