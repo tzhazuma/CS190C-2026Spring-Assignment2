@@ -3,10 +3,10 @@ output_dir: outputs/pilot_xs
 dataset_name: roneneldan/TinyStories
 dataset_config_name: null
 tokenizer_name_or_path: roneneldan/TinyStories-33M
-hf_cache_dir: null
+hf_cache_dir: /2022533131/CS190C-2026Spring-Assignment2/.hf-cache
 hf_local_files_only: false
 block_size: 512
-num_preprocessing_workers: 1
+num_preprocessing_workers: 16
 per_device_train_batch_size: 8
 per_device_eval_batch_size: 8
 gradient_accumulation_steps: 4
