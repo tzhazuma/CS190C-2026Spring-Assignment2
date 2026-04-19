@@ -89,6 +89,7 @@ def main() -> None:
     tokenizer = AutoTokenizer.from_pretrained(
         exp_config["tokenizer_name_or_path"],
         cache_dir=exp_config.get("hf_cache_dir"),
+        local_files_only=exp_config.get("hf_local_files_only", False),
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token

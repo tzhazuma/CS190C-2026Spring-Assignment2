@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from datasets import DatasetDict, load_dataset
+from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import PreTrainedTokenizerBase
 
 
@@ -33,7 +34,11 @@ def build_language_modeling_splits(
     num_preprocessing_workers: int = 1,
     cache_dir: str | None = None,
 ) -> DatasetDict:
-    raw = load_dataset(dataset_name, dataset_config_name, cache_dir=cache_dir)
+    dataset_path = Path(dataset_name)
+    if dataset_path.exists() and dataset_path.is_dir():
+        raw = load_from_disk(str(dataset_path))
+    else:
+        raw = load_dataset(dataset_name, dataset_config_name, cache_dir=cache_dir)
 
     if "validation" not in raw:
         raise ValueError("Expected the dataset to contain a validation split.")

@@ -8,6 +8,8 @@ It focuses on:
 3. checking status after SSH disconnects
 4. TensorBoard on a remote machine
 
+If your compute node cannot access `huggingface.co`, use the offline workflow in section 11.
+
 ## 1. One-time setup on the server
 
 ```bash
@@ -205,3 +207,76 @@ You can still:
 - evaluate any saved checkpoint with `scripts/evaluate.py`
 - inspect `outputs/.../checkpoint-*`
 - restart a run manually if a job is interrupted
+
+## 11. Offline workflow for servers that cannot reach Hugging Face
+
+The error below means your server failed before training even started, because it could not download the tokenizer or dataset:
+
+```text
+[Errno 99] Cannot assign requested address
+```
+
+This is a network problem, not a model-config problem.
+
+Typical reasons:
+
+- the compute node has no outbound internet access
+- `huggingface.co` is blocked from the server network
+- the node cannot open external IPv4 or IPv6 connections correctly
+
+### Step 1. Download assets on a machine that has internet
+
+Run this on your laptop, login node, or any machine that can reach Hugging Face:
+
+```bash
+python scripts/prepare_offline_assets.py --output-dir offline_assets
+```
+
+This creates:
+
+- `offline_assets/tokenizer/TinyStories-33M`
+- `offline_assets/datasets/TinyStories`
+
+### Step 2. Copy the assets to the server
+
+Example with `scp`:
+
+```bash
+scp -r offline_assets your_username@your_server:/path/to/CS190C-2026Spring-Assignment2/
+```
+
+### Step 3. Point the experiment config to local paths
+
+For example, edit your YAML like this:
+
+```yaml
+dataset_name: /path/to/CS190C-2026Spring-Assignment2/offline_assets/datasets/TinyStories
+dataset_config_name: null
+tokenizer_name_or_path: /path/to/CS190C-2026Spring-Assignment2/offline_assets/tokenizer/TinyStories-33M
+hf_cache_dir: /path/to/CS190C-2026Spring-Assignment2/.hf-cache
+hf_local_files_only: true
+```
+
+The training code now supports:
+
+- a local tokenizer directory in `tokenizer_name_or_path`
+- a local dataset directory in `dataset_name`
+- offline tokenizer loading through `hf_local_files_only: true`
+
+### Step 4. Re-run training
+
+```bash
+accelerate launch --config_file accelerate_configs/single_gpu.yaml scripts/train.py \
+  --experiment-config configs/experiments/pilot_s_lr3e4.yaml \
+  --model-config configs/models/s.json
+```
+
+### Optional workaround if your network can reach a mirror but not the official site
+
+If your environment allows it and you trust the mirror you use, you can try setting a Hugging Face mirror endpoint before running:
+
+```bash
+export HF_ENDPOINT=https://hf-mirror.com
+```
+
+This is optional and environment-dependent. The most reliable solution for clusters is still the offline asset workflow above.

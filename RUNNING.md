@@ -45,6 +45,8 @@ No separate download script is required.
 - The code uses only the `train` and `validation` splits, which matches the assignment.
 - Downloaded artifacts are cached by Hugging Face, so later runs reuse the local cache.
 
+If your server cannot access `huggingface.co`, use the offline asset workflow in `SERVER_RUN.md`.
+
 ## 3. Learning-rate sweep on model S
 
 Run these three pilots on a single GPU:
