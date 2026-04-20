@@ -4,7 +4,9 @@ __pycache__/
 .mypy_cache/
 .venv/
 venv/
+.hf-cache/
 outputs/
 logs/
 checkpoints/
 events.out.tfevents*
+submission.zip
